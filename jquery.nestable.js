@@ -27,8 +27,10 @@
     })();
 
     var defaults = {
+        contentCallback: function(item) {return item.name;},
             listNodeName    : 'ol',
             itemNodeName    : 'li',
+        handleNodeName: 'div',
             rootClass       : 'dd',
             listClass       : 'dd-list',
             itemClass       : 'dd-item',
@@ -39,34 +41,67 @@
             noDragClass     : 'dd-nodrag',
             emptyClass      : 'dd-empty',
             expandBtnHTML   : '<button data-action="expand" type="button">Expand</button>',
-            collapseBtnHTML : '<button data-action="collapse" type="button">Collapse</button>',
+        collapseBtnHTML: '<button class="dd-collapse" data-action="collapse" type="button">Collapse</button>',
             group           : 0,
             maxDepth        : 5,
-            threshold       : 20
-        };
+            threshold       : 20,
+        listRenderer: function(children, options) {
+            var html = '<' + options.listNodeName + ' class="' + options.listClass + '">';
+            html += children;
+            html += '</' + options.listNodeName + '>';
+            return html;
+        },
+        itemRenderer: function(item_attrs, content, children, options, item) {
+			var item_attrs_array = $.map(item_attrs, function(value, key) {
+                return ' ' + key + '="' + value + '"';
+            })
+			item_attrs_array.reverse();
+            var item_attrs_string = item_attrs_array.join(' ');
 
-    function Plugin(element, options)
+            var html = '<' + options.itemNodeName + item_attrs_string + '>';
+            html += '<' + options.handleNodeName + ' class="' + options.handleClass + '">';
+            html += content;
+            html += '</' + options.handleNodeName + '>';
+
+			var html_append = "";
+            html_append += '<span class="button-delete btn btn-default btn-xs pull-right" ';
+            html_append += 'data-owner-id="' + item_attrs["data-id"] + '">' + "\r\n";
+            html_append += '<i class="fa fa-times-circle-o" aria-hidden="true"></i>' + "\r\n";
+            html_append += '</span>'+ "\r\n";
+            html_append += '<span class="button-edit btn btn-default btn-xs pull-right" ';
+            html_append += 'data-owner-id="' + item_attrs["data-id"] + '">' + "\r\n";
+            html_append += '<i class="fa fa-pencil" aria-hidden="true"></i>' + "\r\n";
+            html_append += '</span>';
+			html += html_append;
+
+            html += children;
+            html += '</' + options.itemNodeName + '>';
+            return html;
+        }
+    };
+
+    function NPlugin(element, options)
     {
         this.w  = $(document);
         this.el = $(element);
         this.options = $.extend({}, defaults, options);
+        if (this.options.json !== undefined) {
+            this._build();
+        }
         this.init();
     }
 
-    Plugin.prototype = {
+    NPlugin.prototype = {
 
         init: function()
         {
             var list = this;
-
             list.reset();
-
             list.el.data('nestable-group', this.options.group);
-
             list.placeEl = $('<div class="' + list.options.placeClass + '"/>');
 
-            $.each(this.el.find(list.options.itemNodeName), function(k, el) {
-                list.setParent($(el));
+            $.each(this.el.find(list.options.itemNodeName), function(k, subEl) {
+                list.setParent($(subEl));
             });
 
             list.el.on('click', 'button', function(e) {
@@ -143,6 +178,7 @@
                 list  = this;
                 step  = function(level, depth)
                 {
+
                     var array = [ ],
                         items = level.children(list.options.itemNodeName);
                     items.each(function()
@@ -150,6 +186,7 @@
                         var li   = $(this),
                             item = $.extend({}, li.data()),
                             sub  = li.children(list.options.listNodeName);
+                        item.name = escapeDoublequotes(item.name);
                         if (sub.length) {
                             item.children = step(sub, depth + 1);
                         }
@@ -161,6 +198,101 @@
             return data;
         },
 
+        _build: function() {
+            var json = this.options.json;
+
+            if (typeof json === 'string') {
+                json = JSON.parse(json);
+            }
+
+            $(this.el).html(this._buildList(json, this.options));
+        },
+
+        _buildList: function(items, options) {
+            if (!items) {
+                return '';
+            }
+
+            var children = '';
+            var that = this;
+
+            $.each(items, function(index, sub) {
+                children += that._buildItem(sub, options);
+            });
+
+            return options.listRenderer(children, options);
+        },
+
+        _buildItem: function(item, options) {
+            function escapeHtml(text) {
+                var map = {
+                    '&': '&amp;',
+                    '<': '&lt;',
+                    '>': '&gt;',
+                    '"': '&quot;',
+                    "'": '&#039;'
+                };
+
+                return text + "".replace(/[&<>"']/g, function(m) { return map[m]; });
+            }
+
+            function filterClasses(classes) {
+                var new_classes = {};
+
+                for (var k in classes) {
+                    // Remove duplicates
+                    new_classes[classes[k]] = classes[k];
+                }
+
+                return new_classes;
+            }
+
+            function createClassesString(item, options) {
+                var classes = item.classes || {};
+
+                if (typeof classes === 'string') {
+                    classes = [classes];
+                }
+
+                var item_classes = filterClasses(classes);
+                item_classes[options.itemClass] = options.itemClass;
+
+                // create class string
+                return $.map(item_classes, function(val) {
+                    return val;
+                }).join(' ');
+            }
+
+            function createDataAttrs(attr) {
+                attr = $.extend({}, attr);
+
+                delete attr.children;
+                delete attr.classes;
+                delete attr.content;
+
+                var data_attrs = {};
+
+                $.each(attr, function(key, value) {
+                    if (typeof value === 'object') {
+                        value = JSON.stringify(value);
+                    }
+                    data_attrs["data-" + key] = escapeHtml(value);
+                });
+
+                return data_attrs;
+            }
+
+            var item_attrs = createDataAttrs(item);
+            item_attrs["class"] = createClassesString(item, options);
+
+            var content = options.contentCallback(item);
+            var children = this._buildList(item.children, options);
+            var html = $(options.itemRenderer(item_attrs, content, children, options, item));
+           
+            this.setParent(html);
+
+            return html[0].outerHTML;
+        },
         serialise: function()
         {
             return this.serialize();
@@ -233,7 +365,8 @@
 
         setParent: function(li)
         {
-            if (li.children(this.options.listNodeName).length) {
+            if (li.is(this.options.itemNodeName) && li.children(this.options.listNodeName).length) {
+                li.children('[data-action]').remove();
                 li.prepend($(this.options.expandBtnHTML));
                 li.prepend($(this.options.collapseBtnHTML));
             }
@@ -288,7 +421,7 @@
         dragStop: function(e)
         {
             var el = this.dragEl.children(this.options.itemNodeName).first();
-            el[0].parentNode.removeChild(el[0]);
+            /////el[0].parentNode.removeChild(el[0]);
             this.placeEl.replaceWith(el);
 
             this.dragEl.remove();
@@ -469,8 +602,19 @@
             var plugin = $(this).data("nestable");
 
             if (!plugin) {
-                $(this).data("nestable", new Plugin(this, params));
+                $(this).data("nestable", new NPlugin(this, params));
                 $(this).data("nestable-id", new Date().getTime());
+            } else if (typeof params !== "undefined" && params.rebuild){
+				plugin.w  = $(document);
+				plugin.el = $(this);
+				plugin.options = $.extend({}, defaults, params);
+				if (plugin.options.json !== undefined) {
+					plugin._build();
+				}
+				//plugin.init();
+                if (typeof params.rebuildCallback === 'function') {
+                    params.rebuildCallback();
+                }
             } else {
                 if (typeof params === 'string' && typeof plugin[params] === 'function') {
                     retval = plugin[params]();
@@ -480,5 +624,4 @@
 
         return retval || lists;
     };
-
 })(window.jQuery || window.Zepto, window, document);
