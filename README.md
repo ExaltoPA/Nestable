@@ -9,7 +9,7 @@ This is still a draft but fully functional. Its purpose is to merge all of the o
 
 It's not actually intended to be included into existent websites, but more like a standalone software web-app. It is useful for building a menu while thinking about it on a mockup.
 
-![Nestable3 plugin](https://raw.githubusercontent.com/ShinDarth/Nestable/master/screenshot.png "Nestable3 plugin")
+![Nestable3](https://raw.githubusercontent.com/ExaltoPA/Nestable3/master/screenshot.png "Nestable3")
 
 ## Usage
 
