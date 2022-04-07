@@ -3,7 +3,7 @@ Nestable 3
 
 ### Drag & drop hierarchical menu editor jQuery plugin
 
-It is a fork from [dbushell/nestable](https://github.com/dbushell/Nestable), with a lot of the improvements introduced by [FrancescoBorzi's Nestable++ fork](https://github.com/FrancescoBorzi/Nestable).
+It is a fork from [dbushell/nestable](https://github.com/dbushell/Nestable), with most of the improvements introduced by [FrancescoBorzi's Nestable++ fork](https://github.com/FrancescoBorzi/Nestable).
 
 This is still a draft but fully functional. Its purpose is to merge all of the original functionalities, Add/Delete/Edit functionalities (from Nestable++ fork), and add the ability to Export/Import saved menus.
 
